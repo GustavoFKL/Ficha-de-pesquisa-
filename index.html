@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="description" content="Ficha de pesquisa comercial">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Pesquisa Comercial</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111827;background:#f3f4f6}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:760px;margin:auto;padding:16px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-bottom:14px}
+h1,h2{margin:0 0 6px}.muted{color:#6b7280;font-size:.9rem}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.full{grid-column:1/-1}label{display:block;font-weight:650;font-size:.88rem;margin:2px 0 6px}
+input{width:100%;min-height:46px;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:16px;background:#fff}
+.choices{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.choice,button{min-height:44px;border-radius:10px;padding:9px 13px;font-size:15px;cursor:pointer}
+.choice{border:1px solid #d1d5db;background:#fff}.choice.active{background:#111827;color:#fff;border-color:#111827}
+.primary{border:0;background:#111827;color:#fff;font-weight:700}.secondary{border:1px solid #d1d5db;background:#fff;color:#111827}
+.actions{display:flex;flex-wrap:wrap;gap:8px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{border:1px solid #e5e7eb;border-radius:12px;padding:12px;text-align:center}.stat strong{display:block;font-size:1.35rem}
+.record{border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-top:8px;cursor:pointer}.record strong{display:block}.record small{color:#6b7280}
+.notice{padding:10px 12px;border-radius:10px;background:#f9fafb;font-size:.9rem;margin-top:10px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.stats{grid-template-columns:1fr 1fr 1fr}.wrap{padding:10px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<section class="card">
+<h1>Pesquisa Comercial</h1>
+<div class="muted">Cadastre uma empresa por vez. Os registros ficam salvos neste aparelho.</div>
+</section>
+
+<form id="form" class="card">
+<h2>Nova pesquisa</h2>
+<div class="grid">
+<div><label for="nome">Nome do entrevistado</label><input id="nome" required></div>
+<div><label for="empresa">Nome da empresa</label><input id="empresa" required></div>
+<div class="full"><label for="endereco">Endereço</label><input id="endereco"></div>
+<div><label for="chamadas">Chamadas no WhatsApp por dia</label><input id="chamadas" type="number" min="0" inputmode="numeric"></div>
+<div><label for="finalizam">Chegam ao final do atendimento</label><input id="finalizam" type="number" min="0" inputmode="numeric"></div>
+</div>
+
+<label>Possui CRM / sistema de gestão?</label>
+<div class="choices" data-field="crm">
+<button type="button" class="choice" data-value="Sim">Sim</button><button type="button" class="choice" data-value="Não">Não</button><button type="button" class="choice" data-value="Parcialmente">Parcialmente</button>
+</div>
+
+<label>Possui sistema para recuperar quem parou de responder?</label>
+<div class="choices" data-field="recuperacao">
+<button type="button" class="choice" data-value="Sim">Sim</button><button type="button" class="choice" data-value="Não">Não</button><button type="button" class="choice" data-value="Parcialmente">Parcialmente</button>
+</div>
+
+<label>Possui acompanhamento de quem recebeu proposta e ainda não comprou?</label>
+<div class="choices" data-field="proposta">
+<button type="button" class="choice" data-value="Sim">Sim</button><button type="button" class="choice" data-value="Não">Não</button><button type="button" class="choice" data-value="Parcialmente">Parcialmente</button>
+</div>
+
+<label>Uma IA fazendo esse acompanhamento 24h por dia seria interessante?</label>
+<div class="choices" data-field="interesse">
+<button type="button" class="choice" data-value="Muito interessado">Muito interessado</button><button type="button" class="choice" data-value="Interessado">Interessado</button><button type="button" class="choice" data-value="Talvez">Talvez</button><button type="button" class="choice" data-value="Não teria interesse">Não teria interesse</button>
+</div>
+
+<div id="msg" class="notice" hidden></div>
+<div class="actions">
+<button class="primary" type="submit">Salvar e nova pessoa</button>
+<button class="secondary" type="button" id="limpar">Limpar</button>
+</div>
+</form>
+
+<section class="card">
+<div class="actions" style="justify-content:space-between;align-items:center">
+<h2>Resumo</h2><button class="secondary" id="exportar" type="button">Exportar CSV</button>
+</div>
+<div class="stats">
+<div class="stat"><strong id="total">0</strong><span class="muted">Empresas</span></div>
+<div class="stat"><strong id="semcrm">0</strong><span class="muted">Sem CRM</span></div>
+<div class="stat"><strong id="interessados">0</strong><span class="muted">Interessados</span></div>
+</div>
+</section>
+
+<section class="card">
+<h2>Pesquisas cadastradas</h2>
+<div id="lista" class="muted">Nenhuma pesquisa cadastrada.</div>
+</section>
+</main>
+
+<script>
+(()=> {
+const KEY="pesquisa_comercial_v1", data=JSON.parse(localStorage.getItem(KEY)||"[]"), selected={};
+const $=id=>document.getElementById(id), form=$("form");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+document.querySelectorAll(".choices").forEach(g=>g.addEventListener("click",e=>{
+ const b=e.target.closest(".choice"); if(!b)return;
+ selected[g.dataset.field]=b.dataset.value;
+ g.querySelectorAll(".choice").forEach(x=>x.classList.toggle("active",x===b));
+}));
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function render(){
+ $("total").textContent=data.length;
+ $("semcrm").textContent=data.filter(x=>x.crm==="Não").length;
+ $("interessados").textContent=data.filter(x=>["Interessado","Muito interessado"].includes(x.interesse)).length;
+ const l=$("lista");
+ if(!data.length){l.textContent="Nenhuma pesquisa cadastrada.";return}
+ l.innerHTML=data.map((x,i)=>`<div class="record" data-i="${i}"><strong>${esc(x.empresa)}</strong><small>${esc(x.nome)} · ${esc(x.endereco||"Endereço não informado")}<br>WhatsApp: ${x.chamadas||0}/dia · Finalizam: ${x.finalizam||0}<br>IA: ${esc(x.interesse)}</small></div>`).join("");
+ l.querySelectorAll(".record").forEach(r=>r.onclick=()=>load(+r.dataset.i));
+}
+function msg(t){$("msg").textContent=t;$("msg").hidden=false}
+function clear(){
+ form.reset();Object.keys(selected).forEach(k=>delete selected[k]);
+ document.querySelectorAll(".choice").forEach(b=>b.classList.remove("active"));
+ $("msg").hidden=true;$("nome").focus();
+}
+function load(i){
+ const x=data[i];
+ ["nome","empresa","endereco","chamadas","finalizam"].forEach(k=>$(k).value=x[k]??"");
+ Object.assign(selected,x);
+ document.querySelectorAll(".choices").forEach(g=>g.querySelectorAll(".choice").forEach(b=>b.classList.toggle("active",b.dataset.value===selected[g.dataset.field])));
+ msg("Pesquisa carregada para consulta. Se você salvar, será criado um novo registro.");
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+form.onsubmit=e=>{
+ e.preventDefault();
+ const nome=$("nome").value.trim(), empresa=$("empresa").value.trim();
+ const chamadas=Math.max(0,+$("chamadas").value||0), finalizam=Math.max(0,+$("finalizam").value||0);
+ if(!nome||!empresa){msg("Preencha o nome e a empresa.");return}
+ if(chamadas&&finalizam>chamadas){msg("Finalizações não podem ser maiores que as chamadas por dia.");return}
+ data.push({nome,empresa,endereco:$("endereco").value.trim(),chamadas,finalizam,
+ crm:selected.crm||"Não informado",recuperacao:selected.recuperacao||"Não informado",
+ proposta:selected.proposta||"Não informado",interesse:selected.interesse||"Não informado"});
+ save();render();clear();
+};
+$("limpar").onclick=clear;
+$("exportar").onclick=()=>{
+ if(!data.length){msg("Cadastre pelo menos uma pesquisa.");return}
+ const keys=["nome","empresa","endereco","chamadas","finalizam","crm","recuperacao","proposta","interesse"];
+ const heads=["Nome","Empresa","Endereço","WhatsApp/dia","Finalizam","CRM","Recuperação","Acompanhamento de proposta","Interesse IA"];
+ const csv=[heads,...data.map(x=>keys.map(k=>`"${String(x[k]??"").replaceAll('"','""')}"`))].map(r=>r.join(";")).join("\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="pesquisa_comercial.csv";a.click();
+};
+render();
+})();
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
+</body>
+</html>
